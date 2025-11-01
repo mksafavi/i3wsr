@@ -1,0 +1,19 @@
+---
+name: 'test'
+on: [push]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install test dependencies
+        run: sudo apt-get install -y i3-wm gpick xterm
+
+      - name: Setup test environment
+        run: tests/setup.sh
+
+      - name: Run tests
+        run: cargo test

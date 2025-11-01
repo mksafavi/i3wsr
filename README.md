@@ -1,51 +1,26 @@
-i3wsr - i3 workspace renamer
+i3wsr - i3/Sway workspace renamer
 ======
-[![Build Status](https://app.travis-ci.com/roosta/i3wsr.svg?branch=master)](https://app.travis-ci.com/roosta/i3wsr)
+
+[![Test Status](https://github.com/roosta/i3wsr/actions/workflows/test.yaml/badge.svg?branch=main)](https://github.com/roosta/i3wsr/actions)
 [![Crates.io](https://img.shields.io/crates/v/i3wsr)](https://crates.io/crates/i3wsr)
 
-`i3wsr` is a small program that uses [I3's](https://i3wm.org/) [IPC Interface](https://i3wm.org/docs/ipc.html)
-to change the name of a workspace based on its contents.
+A dynamic workspace renamer for i3 and Sway that updates names to reflect their
+active applications.
 
-## Table of content
+`i3wsr` can be configured through command-line flags or a `TOML` config file,
+offering extensive customization of workspace names, icons, aliases, and
+display options.
 
-* [Installation](#installation)
-  * [Arch linux](#arch-linux)
-* [Usage](#usage)
-* [i3 configuration](#i3-configuration)
-* [Configuration / options](#configuration--options)
-  * [Aliases](#aliases)
-  * [WM Property](#wm-property)
-    * [Class](#class)
-    * [Instance](#instance)
-    * [Name](#name)
-  * [Icons](#icons)
-  * [Separator](#separator)
-  * [Default icon](#default-icon)
-  * [No icon names](#no-icon-names)
-  * [No names](#no-names)
-  * [Remove duplicates](#remove-duplicates)
-* [Sway](#sway)
-* [Testing](#testing)
-* [Attribution](#attribution)
+## Preview
 
-## Details
+![preview](https://raw.githubusercontent.com/roosta/i3wsr/main/assets/preview.gif)
 
-The chosen name for a workspace is a composite of the `WM_CLASS` X11 window
-property for each window in a workspace. In action it would look something like this:
-
-![](https://raw.githubusercontent.com/roosta/i3wsr/main/assets/preview.gif)
 ## Requirements
 
-i3wsr requires [XCB](https://xcb.freedesktop.org/), if you get compilation
-errors mentioning `xcb`, you might need to install `libxcb`. On Ubuntu for
-example you'd install:
-
-```sh
-sudo apt-get install libxcb1-dev
-```
-
-Refer to [#18](https://github.com/roosta/i3wsr/issues/18) for more.
-
+i3wsr requires [i3](https://i3wm.org/) or [sway](https://swaywm.org/), and
+[numbered
+workspaces](https://i3wm.org/docs/userguide.html#_changing_named_workspaces_moving_to_workspaces),
+see [Configuration](#configuration)
 
 ## Installation
 
@@ -65,35 +40,43 @@ cargo build --release
 Then place the built binary, located at `target/release/i3wsr`, somewhere on your `$path`.
 
 ### Arch linux
+
 If you're running Arch you can install either [stable](https://aur.archlinux.org/packages/i3wsr/), or [latest](https://aur.archlinux.org/packages/i3wsr-git/) from AUR thanks to reddit user [u/OniTux](https://www.reddit.com/user/OniTux).
 
 ## Usage
-Just launch the program and it'll listen for events if you are running I3.
-Another option is to put something like this in your i3 config
+
+Just launch the program and it'll listen for events if you are running I3 or
+Sway. Another option is to put something like this in your i3 or Sway config:
 
 ```
-# cargo
-exec_always --no-startup-id $HOME/.cargo/bin/i3wsr
-# AUR
-exec_always --no-startup-id /usr/bin/i3wsr
+# i3
+exec_always --no-startup-id i3wsr
+
+# Sway
+exec_always i3wsr
 ```
 
-## i3 configuration
+> `exec_always` ensures a new instance of `i3wsr` is started when config is reloaded or wm/compositor is restarted.
+
+## Configuration
 
 This program depends on numbered workspaces, since we're constantly changing the
-workspace name. So your I3 configuration need to reflect this:
+workspace name. So your I3 or Sway configuration need to reflect this:
 
 ```
 bindsym $mod+1 workspace number 1
 assign [class="(?i)firefox"] number 1
 ```
 
-If you're like me and don't necessarily bind your workspaces to only numbers, or
-you want to keep a part of the name constant you can do like this:
+### Keeping part of the workspace name
+
+If you're like me and don't necessarily bind your workspaces to only numbers,
+or you want to keep a part of the name constant you can do like this:
 
 ```
-bindsym $mod+q workspace number 1:[Q]
-assign [class="(?i)firefox"] number 1:[Q]
+set $myws "1:[Q]" # my sticky part
+bindsym $mod+q workspace number $myws
+assign [class="(?i)firefox"] number $myws
 ```
 
 This way the workspace would look something like this when it gets changed:
@@ -117,16 +100,23 @@ To specify another path, pass it to the `--config` option on invocation:
 i3wsr --config ~/my_config.toml
 ```
 Example config can be found in
-[assets/example_config.toml](https://github.com/roosta/i3wsr/blob/master/assets/example_config.toml).
+[assets/example\_config.toml](https://github.com/roosta/i3wsr/blob/main/assets/example_config.toml).
 
 
 ### Aliases
 
-Sometimes a WM property  can be overly verbose, so its possible to match a
-class name with an alias:
+
+Sometimes a class, instance or name can be overly verbose, use aliases that
+match to window properties to create simpler names instead of showing the full
+property
+
 
 ```toml
-[aliases]
+# For Sway
+[aliases.app_id]
+
+# for i3
+[aliases.class]
 
 # Exact match
 "^Google-chrome-unstable$" = "Chrome-dev"
@@ -147,53 +137,60 @@ Alias keys uses regex for matching, so it's possible to get creative:
 Remember to quote anything but `[a-zA-Z]`, and to escape your slashes. Due to
 rust string escapes if you want a literal backslash use two slashes `\\d`.
 
-### WM Property
+### Aliases based on property
 
-i3wsr supports 3 window properties currently:
+i3wsr supports 4 window properties currently:
 
 ```toml
-[general]
-
-wm_property = "instance"
+[aliases.name]     # 1 i3 / wayland / sway
+[aliases.instance] # 2 i3 / xwayland
+[aliases.class]    # 3 i3 / xwayland
+[aliases.app_id]   # 3 wayland / sway only
 ```
-
-Possible options are `class`, `instance`, and `name`, and will default to `class`
-if not present.
-
-You can alternatively supply cmd argument:
-
-```sh
-i3wsr --wm-property instance
-```
+These are checked in descending order, so if i3wsr finds a name alias, it'll
+use that and if not, then check instance, then finally use class
 
 #### Class
 
-This is the default, and the most succinct.
+> Only for Xwayland / i3
+
+This is the default for `i3`, and the most succinct.
+
+#### App id
+
+> Only for Wayland / Sway
+
+This is the default for wayland apps, and the most and works largely like class.
 
 #### Instance
 
-Use WM_INSTANCE instead of WM_CLASS when assigning workspace names, instance is
-usually more specific. i3wsr will try to match icon with instance, and if that
-fail, will fall back to class.
+> Only for Xwayland / i3
+
+Use `instance` instead of `class` when assigning workspace names,
+instance is usually more specific. i3wsr will try to get the instance but if it
+isn't defined will fall back to class.
 
 A use case for this option could be launching `chromium
 --app="https://web.whatsapp.com"`, and then assign a different icon to whatsapp
-in your config file:
+in your config file, while chrome retains its own alias:
 ```toml
+
 [icons]
 "WhatsApp" = "🗩"
-```
 
-Aliases will also match on instance:
-```toml
-[aliases]
-"web\\.whatsapp\\.com" = "WhatsApp"
+[aliases.class]
+Google-chrome = "Chrome"
+
+[aliases.instance]
+"web\\.whatsapp\\.com" = "Whatsapp"
 ```
 
 #### Name
 
-Uses WM_NAME instead of WM_CLASS, this option is very verbose and relies on regex
-matching of aliases to be of any use.
+> Sway and i3
+
+Uses `name` instead of `instance` and `class|app_id`, this option is very
+verbose and relies on regex matching of aliases to be of any use.
 
 A use-case is running some terminal application, and as default i3wsr will only
 display class regardless of whats running in the terminal.
@@ -201,30 +198,30 @@ display class regardless of whats running in the terminal.
 So you could do something like this:
 
 ```toml
-[general]
-wm_property = "name"
-
-[aliases]
+[aliases.name]
 ".*mutt$" = "Mutt"
 ```
 
-You could display whatever the terminal is running, but this comes with one
-caveat: i3 has no way of knowing what happens in a terminal and starting say
-mutt will not trigger any IPC events. The alias will take effect whenever i3
-receives a window or workspace event.
+### Display property
 
-It should be possible to write a launcher script, that wraps whatever
-command your running with a custom i3 ipc trigger event. If anyone figures out
-a nice way of doing it let me know.
+Which property to display if no aliases is found:
 
+```toml
+[general]
+display_property = "instance"
+```
+
+Possible options are `class`, `app_id`, `instance`, and `name`, and will default
+to `class` or `app_id` depending on display server if not present.
+
+You can alternatively supply cmd argument:
+```sh
+i3wsr --display-property name
+```
 ### Icons
 
-You can configure icons for your WM property, a very basic preset for
-font-awesome is configured, to enable it use the option `--icons awesome`
-(requires font-awesome to be installed).
+You can config icons for your WM property, these are defined in your config file.
 
-A more in depth icon configuration can be setup by using a configuration file.
-In there you can define icons for whatever title you'd like.
 ```toml
 [icons]
 Firefox = "🌍"
@@ -232,11 +229,12 @@ Firefox = "🌍"
 # Use quote when matching anything other than [a-zA-Z]
 "Org.gnome.Nautilus" = "📘"
 ```
-i3wsr tries to match an icon with an alias first, then falls back to window
-class, so a config like this is valid:
+i3wsr tries to match an icon with an alias first, if none are found it then
+checks your `display_property`, and tries to match an icon with a non aliased
+`display_property`, lastly it will try to match on class.
 
 ```toml
-[aliases]
+[aliases.class]
 "Gimp-\\d\\.\\d\\d" = "Gimp"
 
 [icons]
@@ -262,7 +260,14 @@ To use a default icon when no other is defined use:
 [general]
 default_icon = "💀"
 ```
+### Empty label
 
+Set a label for empty workspaces.
+
+```toml
+[general]
+empty_label = "🌕"
+```
 ### No icon names
 To display names only if icon is not available, you can use the
 `--no-icon-names` flag, or enable it in your config file like so:
@@ -287,17 +292,37 @@ file:
 remove_duplicates = true
 ```
 
-## Sway
-Check [Pedro Scaff](https://github.com/pedroscaff)'s port [swaywsr](https://github.com/pedroscaff/swaywsr).
+### Split at character
+
+By default i3wsr will keep everything until the first `space` character is found,
+then replace the remainder with titles.
+
+If you want to define a different character that is used to split the
+numbered/constant part of the workspace and the dynamic content, you can use
+the option `--split-at [CHAR]`
+
+```toml
+[general]
+split_at = ":"
+```
+
+Here we define colon as the split character, which results in i3wsr only
+keeping the numbered part of a workspace name when renaming.
+
+This can give a cleaner config, but I've kept the old behavior as default.
 
 ## Testing
 
-To run tests locally [Vagrant](https://www.vagrantup.com/) is required. Run
-`script/run_tests.sh` to run tests on ubuntu xenial.
+To run unit tests use `cargo test --lib`, to run the full test suite locally
+use the [Containerfile](./Containerfile) with [Podman](https://podman.io/) for
+example:
 
-## Attribution
-This program would not be possible without
-[i3ipc-rs](https://github.com/tmerr/i3ipc-rs), a rust library for controlling
-i3-wm through its IPC interface and
-[rust-xcb](https://github.com/rtbo/rust-xcb), a set of rust bindings and
-wrappers for [XCB](http://xcb.freedesktop.org/).
+```sh
+# cd project root
+podman build -t i3wsr-test .
+podman run -t --name i3wsr-test i3wsr-test:latest
+```
+
+## License
+
+[MIT](./LICENSE)

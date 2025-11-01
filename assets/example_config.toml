@@ -10,16 +10,31 @@ Nautilus = "📘"
 # smile emoji
 MyNiceProgram = "😛"
 
-[aliases]
+# i3 / Xwayland
+[aliases.class]
 TelegramDesktop = "Telegram"
 "Org\\.gnome\\.Nautilus" = "Nautilus"
 
+# Sway only
+[aliases.app_id]
+"^firefox$" = "Firefox"
+
+# i3 only
+[aliases.instance]
+"open.spotify.com" = "Spotify"
+
+# Both i3 and sway
+[aliases.name]
+
 [general]
 separator = "  "
+split_at = ":"
+empty_label = "🌕"
+display_property = "instance" # class, instance, name
 default_icon = ""
-wm_property = "class"
 
 [options]
 remove_duplicates = false
 no_names = false
 no_icon_names = false
+focus_fix = false
